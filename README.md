@@ -96,3 +96,10 @@ Resposta do Motor: O sistema rejeita automaticamente pacotes acima do orçamento
   ]
 }
 ```
+## 🧠 Imagem da arquitetura
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/6279d905-cf25-4190-90fe-6b96f886a2d7" />
+
+
+
+
