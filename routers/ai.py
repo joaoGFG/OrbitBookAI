@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import httpx
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from routers.auth import get_usuario_atual
+from auth import get_usuario_atual
 import models
 
 router = APIRouter(prefix="/ai", tags=["IA"])
@@ -19,19 +20,10 @@ _SYSTEM_BASE = """Você é ARIA, assistente de viagens espaciais do OrbitBook.
 
 ESTILO: Respostas curtas e diretas — 1 a 3 frases no máximo. Tom animado, próximo, sem enrolação. Sempre em português do Brasil.
 
-REGRA OBRIGATÓRIA — TAG DE RECOMENDAÇÃO:
-Sempre que mencionar ou sugerir qualquer destino específico, você DEVE incluir ao final da resposta:
-[REC:ID1,ID2,ID3]
-Usando os IDs exatos da lista abaixo (máximo 3 destinos).
-Essa tag é removida automaticamente antes de exibir ao usuário — nunca a omita quando recomendar destinos.
-Se a mensagem não envolver recomendação de destino, não inclua a tag.
-
-Exemplos corretos:
-- "A Estação Orbital Alpha é perfeita para iniciantes! [REC:2]"
-- "Para quem quer a Lua, temos duas opções incríveis. [REC:4,7]"
-- "Para esse orçamento, recomendo estas três missões. [REC:1,3,5]"
+REGRA DE RECOMENDAÇÃO:
+Sempre que o usuário pedir uma viagem ou você sugerir um destino, use EXCLUSIVAMENTE os IDs dos destinos listados no catálogo.
+Não invente destinos. Se não houver destino que caiba no orçamento, explique isso gentilmente.
 """
-
 
 def _truncate_bytes(text: str, max_bytes: int) -> str:
     encoded = text.encode("utf-8")
@@ -39,9 +31,15 @@ def _truncate_bytes(text: str, max_bytes: int) -> str:
         return text
     return encoded[:max_bytes].decode("utf-8", errors="ignore")
 
-
 def _build_system_prompt(destinos: list) -> str:
-    linhas = [_SYSTEM_BASE, "\n=== Destinos disponíveis (use os IDs ao recomendar) ==="]
+    regras = """
+=== REGRAS DE CÁLCULO E CONTEÚDO ===
+- O campo "content" NUNCA deve conter tags, IDs ou mencionar a palavra JSON.
+- O campo "destino_ids" deve conter apenas os números inteiros. Deixe vazio [] se não recomendar nada.
+- Quando o usuário informar quantidade de pessoas, calcule o custo aproximado como preco_base * pessoas.
+- Para microgravidade e viagem curta, priorize destinos orbitais/LEO se couberem no orçamento.
+"""
+    linhas = [_SYSTEM_BASE, regras, "\n=== Destinos disponíveis ==="]
     for d in destinos:
         tipo = d.destination_type.name if d.destination_type else "N/A"
         linhas.append(
@@ -51,16 +49,27 @@ def _build_system_prompt(destinos: list) -> str:
         )
     return "\n".join(linhas)
 
+def _extrair_json_ia(text: str) -> tuple[str, list[str], list[int]]:
+    inicio = text.find('{')
+    fim = text.rfind('}')
+    
+    if inicio != -1 and fim != -1:
+        raw = text[inicio:fim+1]
+    else:
+        raw = text.strip()
 
-def _extrair_recomendacoes(text: str) -> tuple[str, list[int]]:
-    match = re.search(r'\[REC:([\d,\s]+)\]', text)
-    if not match:
-        return text.strip(), []
-    ids_str = match.group(1)
-    ids = [int(x.strip()) for x in ids_str.split(',') if x.strip().isdigit()]
-    clean = re.sub(r'\s*\[REC:[\d,\s]+\]', '', text).strip()
-    return clean, ids[:3]
-
+    try:
+        data = json.loads(raw, strict=False)
+        content = str(data.get("content", "")).strip()
+        suggestions = data.get("suggestions") or []
+        destino_ids = data.get("destino_ids") or []
+        
+        suggestions = [str(s).strip() for s in suggestions if str(s).strip()][:3]
+        destino_ids = [int(i) for i in destino_ids if str(i).isdigit() or isinstance(i, int)][:3]
+        return content, suggestions, destino_ids
+    except json.JSONDecodeError:
+        print(f"\n[ERRO DE JSON] A IA respondeu com um formato inválido:\n{text}\n")
+        return "Desculpe, tive um pequeno problema de comunicação espacial. Pode reformular a pergunta?", [], []
 
 def _get_avaliacao(db: Session, dest_id: int) -> Optional[dict]:
     result = (
@@ -70,13 +79,11 @@ def _get_avaliacao(db: Session, dest_id: int) -> Optional[dict]:
         )
         .join(models.Booking, models.Review.id_bookings == models.Booking.id_bookings)
         .filter(models.Booking.id_destinations == dest_id)
-        .one()
+        .first()
     )
-    total = result.total or 0
-    if total == 0:
+    if not result or not result.total or result.total == 0:
         return None
-    return {"media": round(float(result.media), 1), "total": total}
-
+    return {"media": round(float(result.media), 1), "total": result.total}
 
 def _sugestoes(user_msg: str, ai_resp: str) -> List[str]:
     msg = (user_msg + " " + ai_resp).lower()
@@ -92,21 +99,17 @@ def _sugestoes(user_msg: str, ai_resp: str) -> List[str]:
         return ["Tenho problema cardíaco, posso ir?", "Como é o exame médico?", "Requisitos completos"]
     return ["Destinos mais acessíveis", "Missões com alta avaliação", "Opções para grupos grandes"]
 
-
 # ── Schemas ──────────────────────────────────────────────────
 class MensagemChat(BaseModel):
     role: str
     content: str
 
-
 class ChatRequest(BaseModel):
     messages: List[MensagemChat]
-
 
 class AvaliacaoResumo(BaseModel):
     media: float
     total: int
-
 
 class DestinoRecomendado(BaseModel):
     id: int
@@ -120,13 +123,11 @@ class DestinoRecomendado(BaseModel):
     avaliacao: Optional[AvaliacaoResumo] = None
     ativo: int = 1
 
-
 class ChatResponse(BaseModel):
     content: str
     suggestions: List[str]
     recomendacao_id: Optional[int] = None
     destinos_recomendados: List[DestinoRecomendado] = []
-
 
 # ── Endpoint ─────────────────────────────────────────────────
 @router.post("/chat", response_model=ChatResponse)
@@ -139,6 +140,7 @@ def chat(
     if not api_key:
         raise HTTPException(500, "GEMINI_API_KEY não configurada")
 
+    api_key_limpa = api_key.strip()
     destinos = db.query(models.Destination).join(models.DestinationType).all()
     system_prompt = _build_system_prompt(destinos)
 
@@ -156,14 +158,32 @@ def chat(
     body = {
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": contents,
-        "generationConfig": {"maxOutputTokens": 350, "temperature": 0.75},
+        "generationConfig": {
+            "temperature": 0.2,
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "content": {"type": "STRING"},
+                    "suggestions": {
+                        "type": "ARRAY",
+                        "items": {"type": "STRING"}
+                    },
+                    "destino_ids": {
+                        "type": "ARRAY",
+                        "items": {"type": "INTEGER"}
+                    }
+                },
+                "required": ["content", "suggestions", "destino_ids"]
+            }
+        },
     }
 
     resp = None
     used_model = GEMINI_MODELS[0]
     with httpx.Client(timeout=30) as client:
         for model in GEMINI_MODELS:
-            url = _GEMINI_BASE.format(model=model) + f"?key={api_key}"
+            url = _GEMINI_BASE.format(model=model) + f"?key={api_key_limpa}"
             r = client.post(url, json=body, headers={"Content-Type": "application/json"})
             if r.status_code not in (429, 503):
                 resp = r
@@ -172,10 +192,10 @@ def chat(
             print(f"[GEMINI] {model} → {r.status_code}, tentando próximo...")
 
     if resp is None or not resp.is_success:
-        status = resp.status_code if resp else 502
+        status_code = resp.status_code if resp else 502
         body_text = resp.text[:200] if resp else "sem resposta"
-        print(f"[GEMINI ERROR] status={status} body={body_text}")
-        raise HTTPException(502, f"Erro da API Gemini: {status} — {body_text}")
+        print(f"[GEMINI ERROR] status={status_code} body={body_text}")
+        raise HTTPException(502, f"Erro da API Gemini: {status_code} — {body_text}")
 
     data = resp.json()
     candidate = data.get("candidates", [{}])[0]
@@ -190,10 +210,9 @@ def chat(
     if not raw_text:
         raise HTTPException(502, "Resposta inválida da API Gemini")
 
-    clean_text, dest_ids = _extrair_recomendacoes(raw_text)
+    clean_text, ai_suggestions, dest_ids = _extrair_json_ia(raw_text)
     last_user = next((m.content for m in reversed(messages) if m.role == "user"), "")
 
-    # Busca destinos recomendados
     destinos_recomendados: List[DestinoRecomendado] = []
     for did in dest_ids:
         d = db.query(models.Destination).filter(models.Destination.id_destinations == did).first()
@@ -214,7 +233,6 @@ def chat(
                 )
             )
 
-    # Persiste log
     recomendacao_id = None
     try:
         rec = models.AIRecomendation(
@@ -232,11 +250,10 @@ def chat(
 
     return ChatResponse(
         content=clean_text,
-        suggestions=_sugestoes(last_user, clean_text),
+        suggestions=ai_suggestions or _sugestoes(last_user, clean_text),
         recomendacao_id=recomendacao_id,
         destinos_recomendados=destinos_recomendados,
     )
-
 
 @router.get("/historico", response_model=List[dict])
 def historico(

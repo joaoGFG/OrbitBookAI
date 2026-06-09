@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from database import get_db
-from routers.auth import hash_senha, verificar_senha, criar_token, get_usuario_atual
+from auth import hash_senha, verificar_senha, criar_token, get_usuario_atual
 import models, schemas
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,6 +42,22 @@ def login(payload: schemas.UsuarioLogin, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas",
+        )
+    token = criar_token({"sub": str(usuario.id_users_orbit)})
+    return schemas.TokenOut(
+        access_token=token,
+        usuario=schemas.UsuarioOut.model_validate(usuario),
+    )
+
+
+@router.post("/token", response_model=schemas.TokenOut, include_in_schema=False)
+def login_swagger(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    usuario = db.query(models.UserOrbit).filter(models.UserOrbit.email == form_data.username).first()
+    if not usuario or not verificar_senha(form_data.password, usuario.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais invÃ¡lidas",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     token = criar_token({"sub": str(usuario.id_users_orbit)})
     return schemas.TokenOut(
