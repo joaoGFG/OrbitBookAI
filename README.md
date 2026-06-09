@@ -7,7 +7,8 @@ Este repositório contém exclusivamente a arquitetura do **Motor de Inteligênc
 A nossa IA não atua como um simples chatbot isolado, mas como um **Concierge Espacial** integrado. Ele processa o perfil do viajante, cruza restrições de negócio (orçamento, capacidade e nível de risco) diretamente com o banco de dados e retorna sugestões justificadas em linguagem natural, prontas para reserva.
 
 ## 🎥 Pitch e Demonstração Funcional
-* [Assista ao vídeo da IA em funcionamento no YouTube (Máx 3 min)](#)
+* [Assista ao vídeo da IA em funcionamento no YouTube (Máx 3 min)]([#](https://youtu.be/NgRlAl6Zscc
+))
 * [Acesse o Front-end Completo do OrbitBook](https://github.com/caiolucasxz55/orbitbook-frontend)
 
 ---
