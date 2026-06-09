@@ -8,7 +8,7 @@ A nossa IA não atua como um simples chatbot isolado, mas como um **Concierge Es
 
 ## 🎥 Pitch e Demonstração Funcional
 * [Assista ao vídeo da IA em funcionamento no YouTube (Máx 3 min)](#)
-* [Acesse o Front-end Completo do OrbitBook](#)
+* [Acesse o Front-end Completo do OrbitBook](https://github.com/caiolucasxz55/orbitbook-frontend)
 
 ---
 
