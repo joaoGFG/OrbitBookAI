@@ -33,21 +33,28 @@ O motor de IA foi desenvolvido isolando a lógica cognitiva em um microserviço 
 
 ## 🚀 Como Executar este Microserviço Localmente
 
+Siga o exemplo do .env.example:
+ORACLE_USER=user
+ORACLE_PASSWORD=senha
+ORACLE_DSN=oracle.fiap.com.br:1521/orcl
+SECRET_KEY=orbitbook-secret-key-2026-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+GEMINI_API_KEY=sua_chave
+
 1. Clone o repositório
 git clone https://github.com/SEU_USUARIO/orbitbook-ai-api.git
 cd orbitbook-ai-api
 
-2. Crie e ative o ambiente virtual (Windows PowerShell)
+2. Crie e ative o ambiente virtual (Windows PowerShell):
 py -3.12 -m venv .venv
 .\.venv\Scripts\activate
 
-3. Instale as dependências
+3. Instale as dependências:
 pip install -r requirements.txt
 
-4. Configuração de Variáveis de Ambiente
-Crie um arquivo .env na raiz do projeto e insira suas credenciais:
-GEMINI_API_KEY=sua_chave_do_google_ai_studio
-DATABASE_URL=oracle+oracledb://usuario:senha@host:porta/?service_name=seu_servico
+4. Configuração de Variáveis de Ambiente:
+Crie um arquivo .env na raiz do projeto e cole o que está no .env.example mas com suas credenciais
 
 5. Inicie o Servidor Local
 uvicorn main:app --reload
