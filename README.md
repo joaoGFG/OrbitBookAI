@@ -7,27 +7,40 @@ Este repositório contém exclusivamente a arquitetura do **Motor de Inteligênc
 A nossa IA não atua como um simples chatbot isolado, mas como um **Concierge Espacial** integrado. Ele processa o perfil do viajante, cruza restrições de negócio (orçamento, capacidade e nível de risco) diretamente com o banco de dados e retorna sugestões justificadas em linguagem natural, prontas para reserva.
 
 ## 🎥 Pitch e Demonstração Funcional
-* [Assista ao vídeo da IA em funcionamento no YouTube (Máx 3 min)](#)
+* [Assista ao vídeo da IA em funcionamento no YouTube (Máx 3 min)]([#](https://youtu.be/NgRlAl6Zscc
+))
 * [Acesse o Front-end Completo do OrbitBook](https://github.com/caiolucasxz55/orbitbook-frontend)
 
 ---
 
 ## 🧠 Arquitetura e Integração
 
-O motor de IA foi desenvolvido isolando a lógica cognitiva em um microserviço Python (FastAPI), garantindo segurança e escalabilidade, enquanto o Front-end consome a inteligência via chamadas REST.
+O motor de IA foi desenvolvido como um microserviço independente em FastAPI, responsável pela autenticação, integração com o Google Gemini e persistência dos dados no Oracle Database. A aplicação segue uma arquitetura desacoplada, permitindo que qualquer cliente (Web, Mobile ou Swagger) consuma os recursos por meio de APIs REST.
 
-### ⚙️ Fluxo de Funcionamento (RAG Simplificado)
-1. Front-end (Next.js): O usuário digita suas restrições de viagem em linguagem natural.
-2. Back-end (FastAPI + Oracle): O serviço conecta no Oracle DB, extrai o catálogo dinâmico e atualizado de destinos (com preços reais) e injeta como contexto para o modelo fundacional.
-3. Inferência (Google Gemini): O LLM é instruído via Prompt Engineering a atuar como concierge e é forçado a devolver uma tag regulatória estruturada [REC:ID_DESTINO].
-4. Tratamento e Persistência: A API extrai o ID via Regex, recupera a nota de avaliação em tempo real do banco, salva o log da recomendação e devolve um JSON mastigado para o front-end.
+### ⚙️ Fluxo de Funcionamento
+
+1. **Autenticação (JWT):** O usuário realiza login utilizando e-mail e senha. As credenciais são validadas e um token JWT é emitido para acesso aos endpoints protegidos.
+2. **Consulta Inteligente:** O cliente envia uma mensagem para o endpoint `/ai/chat` juntamente com o token JWT.
+3. **Construção de Contexto Dinâmico:** A API consulta o Oracle Database e monta dinamicamente um catálogo atualizado de destinos espaciais, incluindo preços, capacidade, distância e categoria.
+4. **Inferência com IA Generativa:** O catálogo é enviado ao Google Gemini juntamente com o histórico da conversa. O modelo recebe instruções para atuar como concierge espacial e responder utilizando um esquema JSON rigidamente definido.
+5. **Resposta Estruturada:** O Gemini retorna um JSON contendo:
+   * Texto da recomendação (`content`)
+   * Sugestões de próximas perguntas (`suggestions`)
+   * IDs dos destinos recomendados (`destino_ids`)
+6. **Enriquecimento dos Dados:** A API utiliza os IDs retornados para consultar novamente o banco de dados, recuperando informações completas dos destinos e suas avaliações médias em tempo real.
+7. **Persistência e Histórico:** O prompt do usuário, a resposta gerada e o modelo utilizado são armazenados para auditoria e histórico de recomendações.
+8. **Resposta ao Front-end:** O cliente recebe uma resposta estruturada contendo a mensagem da IA, sugestões de interação e os dados completos dos destinos recomendados.
 
 ### 🛠️ Tecnologias Utilizadas
-* Linguagem: Python 3.12
-* Framework Web: FastAPI + Uvicorn
-* IA Generativa: Google Gemini API (Flash models com failover automático)
-* Banco de Dados: Oracle Database (Acesso nativo via SQLAlchemy / oracledb)
-* Segurança: Hashes com bcrypt (passlib) e controle via JWT.
+* **Linguagem:** Python 3.12
+* **Framework Web:** FastAPI + Uvicorn
+* **IA Generativa:** Google Gemini API
+* **Structured Output:** Gemini Response Schema (JSON estruturado)
+* **Banco de Dados:** Oracle Database
+* **ORM:** SQLAlchemy + oracledb
+* **Autenticação:** JWT (JSON Web Token)
+* **Segurança:** bcrypt (passlib)
+* **HTTP Client:** httpx
 
 ---
 
@@ -96,3 +109,10 @@ Resposta do Motor: O sistema rejeita automaticamente pacotes acima do orçamento
   ]
 }
 ```
+## 🧠 Imagem da arquitetura
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/6279d905-cf25-4190-90fe-6b96f886a2d7" />
+
+
+
+
