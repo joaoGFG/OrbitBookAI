@@ -1,5 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+# Força o carregamento do arquivo .env
+load_dotenv()
+
+from fastapi import FastAPI
 
 # Importamos APENAS os roteadores necessários para a IA e Autenticação
 from routers import auth, ai
