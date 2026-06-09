@@ -43,21 +43,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 GEMINI_API_KEY=sua_chave
 
 1. Clone o repositório
-git clone https://github.com/SEU_USUARIO/orbitbook-ai-api.git
-cd orbitbook-ai-api
+``` git clone https://github.com/SEU_USUARIO/orbitbook-ai-api.git ```
+``` cd orbitbook-ai-api ```
 
 2. Crie e ative o ambiente virtual (Windows PowerShell):
-py -3.12 -m venv .venv
-.\.venv\Scripts\activate
+```py -3.12 -m venv .venv ``` depois
+```.\.venv\Scripts\activate ```
 
-3. Instale as dependências:
-pip install -r requirements.txt
+4. Instale as dependências:
+```pip install -r requirements.txt```
 
-4. Configuração de Variáveis de Ambiente:
+5. Configuração de Variáveis de Ambiente:
 Crie um arquivo .env na raiz do projeto e cole o que está no .env.example mas com suas credenciais
 
-5. Inicie o Servidor Local
-uvicorn main:app --reload
+6. Inicie o Servidor Local:
+```uvicorn main:app --reload```
 
 A API estará disponível em http://127.0.0.1:8000. Você pode testar os endpoints interativamente acessando http://127.0.0.1:8000/docs.
 
@@ -66,6 +66,7 @@ A API estará disponível em http://127.0.0.1:8000. Você pode testar os endpoin
 ## 🧪 Exemplo de Uso do Endpoint /ai/chat
 
 Requisição (POST):
+```
 {
   "messages": [
     {
@@ -74,9 +75,10 @@ Requisição (POST):
     }
   ]
 }
+```
 
 Resposta do Motor: O sistema rejeita automaticamente pacotes acima do orçamento (ex: Lua) e cruza as variáveis para recomendar pacotes em Órbita LEO:
-
+```
 {
   "content": "Para o seu orçamento de 80 milhões e desejo de microgravidade contínua, a Órbita Baixa (LEO) é o ideal para o casal! A Estação Axiom oferece estadias incríveis e caberá perfeitamente na sua carteira.",
   "suggestions": [
@@ -93,3 +95,4 @@ Resposta do Motor: O sistema rejeita automaticamente pacotes acima do orçamento
     }
   ]
 }
+```
